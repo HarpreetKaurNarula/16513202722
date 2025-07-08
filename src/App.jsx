@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link2, Copy, ExternalLink, BarChart3 } from 'lucide-react';
 import './App.css';
+import { logEvent } from './utilis/logger';
 
 const URLShortener = () => {
   const [urls, setUrls] = useState([]);
@@ -16,7 +17,7 @@ const URLShortener = () => {
 
   const isUnique = (code) => !urls.find(u => u.code === code);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setLoading(true);
     setMsg('');
 
@@ -48,70 +49,64 @@ const URLShortener = () => {
       setUrls(prev => [...prev, newUrl]);
       setForm({ url: '', code: '', validity: 30 });
       setMsg('URL shortened successfully!');
+
+      await logEvent('frontend', 'info', 'component', `Shortened URL: ${form.url} to ${code}`);
     } catch (error) {
       setMsg(error.message);
+      await logEvent('frontend', 'error', 'component', `URL shortening error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClick = (url) => {
+  const handleClick = async (url) => {
     if (new Date() > new Date(url.expiryDate)) {
       setMsg('URL expired');
+      await logEvent('frontend', 'warn', 'component', `Attempted access to expired URL: ${url.code}`);
       return;
     }
 
     setUrls(prev => prev.map(u =>
       u.id === url.id
-        ? {
-            ...u,
-            clicks: u.clicks + 1,
-            clickData: [...u.clickData, { timestamp: new Date() }]
-          }
+        ? { ...u, clicks: u.clicks + 1, clickData: [...u.clickData, { timestamp: new Date() }] }
         : u
     ));
 
     setMsg(`Redirecting to: ${url.originalUrl}`);
     window.open(url.originalUrl, '_blank');
+
+    await logEvent('frontend', 'info', 'component', `User redirected to ${url.originalUrl}`);
   };
 
-  const copy = (text) => {
-    navigator.clipboard.writeText(text);
+  const copy = async (text) => {
+    await navigator.clipboard.writeText(text);
     setMsg('Copied!');
+    await logEvent('frontend', 'info', 'component', `Copied short URL: ${text}`);
   };
 
   return (
     <div className="app-container">
-      {/* Header */}
       <div className="header">
         <div className="header-title">
           <Link2 />
           <h1>URL Shortener</h1>
         </div>
         <div className="header-buttons">
-          <button
-            onClick={() => setPage('shortener')}
-            className={`nav ${page === 'shortener' ? 'active' : ''}`}
-          >
+          <button onClick={() => setPage('shortener')} className={`nav ${page === 'shortener' ? 'active' : ''}`}>
             Shortener
           </button>
-          <button
-            onClick={() => setPage('stats')}
-            className={`nav ${page === 'stats' ? 'active' : ''}`}
-          >
+          <button onClick={() => setPage('stats')} className={`nav ${page === 'stats' ? 'active' : ''}`}>
             Stats
           </button>
         </div>
       </div>
 
-      {/* Message */}
       {msg && (
         <div className={`message ${msg.includes('success') || msg.includes('Copied') ? 'success' : 'error'}`}>
           {msg}
         </div>
       )}
 
-      {/* Shortener Page */}
       {page === 'shortener' && (
         <div>
           <div className="form-box">
@@ -133,25 +128,17 @@ const URLShortener = () => {
                 <input
                   type="number"
                   value={form.validity}
-                  onChange={(e) => setForm(prev => ({
-                    ...prev,
-                    validity: parseInt(e.target.value) || 30
-                  }))}
+                  onChange={(e) => setForm(prev => ({ ...prev, validity: parseInt(e.target.value) || 30 }))}
                   placeholder="30"
                   min="1"
                 />
               </div>
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="submit"
-              >
+              <button onClick={handleSubmit} disabled={loading} className="submit">
                 {loading ? 'Shortening...' : 'Shorten URL'}
               </button>
             </div>
           </div>
 
-          {/* Recent URLs */}
           {urls.length > 0 && (
             <div className="form-box">
               <h3>Recent URLs</h3>
@@ -182,7 +169,6 @@ const URLShortener = () => {
         </div>
       )}
 
-      {/* Stats Page */}
       {page === 'stats' && (
         <div className="form-box">
           <h2>
