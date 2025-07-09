@@ -1,4 +1,4 @@
-const accessToken = 'your_access_token_here'; // Replace with your actual token
+const accessToken = '';
 const LOGGING_URL = 'http://20.244.56.144/evaluation-service/logs';
 
 /**
